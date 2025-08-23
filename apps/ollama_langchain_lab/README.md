@@ -3,7 +3,7 @@
 A simple and powerful demo application that integrates **Ollama** large language models with **LangChain** framework wrapped in a clean **Streamlit** interface. This project demonstrates how to leverage Ollama’s local LLM serving capabilities combined with LangChain’s chat abstraction to build an interactive chat assistant.
 
 ---
-![Chat Interface](images/demo.JPG)
+![Chat Interface](Images/demo.JPG)
 
 ## Features
 
