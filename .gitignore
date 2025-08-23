@@ -3,10 +3,23 @@
 # Learn more about .gitignore:
 #     https://www.atlassian.com/git/tutorials/saving-changes/gitignore
 
-# Node artifact files
-node_modules/
-dist/
 
+
+# Virtual envs
+.venv/
+venv/
+env/
+# Virtual environment
+ollama_langchain_lab_venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local config
+.env
+.env.*
 # Compiled Java class files
 *.class
 
