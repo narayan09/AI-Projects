@@ -1,57 +1,79 @@
 #!/bin/bash
+# sync_branches.sh - Check + Auto-fix branch sync across origin, bitbucket, and main
+
 set -e
 
-# Remotes
-REMOTES=("origin" "bitbucket")
+BRANCHES=("main" "develop" "feature/ollama-langchain-lab")
 
 echo "🔄 Fetching latest changes from both remotes..."
-for remote in "${REMOTES[@]}"; do
-  git fetch "$remote"
-done
+git fetch origin
+git fetch bitbucket
 
-# Track sync status
-REPORT=""
+echo
+echo "📊 Checking branch sync status..."
+echo "----------------------------------------"
 
-# Loop through all local branches
-for branch in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
-  echo -e "\n➡️ Syncing branch: $branch"
-  git checkout "$branch"
+for branch in "${BRANCHES[@]}"; do
+  echo "🔍 Checking $branch..."
+  STATUS=""
 
-  # Pull from both remotes
-  for remote in "${REMOTES[@]}"; do
-    if git ls-remote --exit-code "$remote" "$branch" &>/dev/null; then
-      echo "   📥 Pulling from $remote/$branch"
-      git pull "$remote" "$branch" || true
+  LOCAL=$(git rev-parse $branch 2>/dev/null || echo "none")
+  ORIGIN=$(git rev-parse origin/$branch 2>/dev/null || echo "none")
+  BITBUCKET=$(git rev-parse bitbucket/$branch 2>/dev/null || echo "none")
+
+  # Compare local vs origin
+  if [ "$LOCAL" != "$ORIGIN" ]; then
+    STATUS+=" ⚠️ differs from origin"
+  else
+    STATUS+=" ✅ matches origin"
+  fi
+
+  # Compare local vs bitbucket
+  if [ "$LOCAL" != "$BITBUCKET" ]; then
+    STATUS+=" ⚠️ differs from bitbucket"
+  else
+    STATUS+=" ✅ matches bitbucket"
+  fi
+
+  # Ahead/Behind vs main
+  if [ "$branch" != "main" ] && git rev-parse --verify main &>/dev/null; then
+    BEHIND=$(git rev-list --count $branch..main || echo 0)
+    AHEAD=$(git rev-list --count main..$branch || echo 0)
+
+    if [ "$AHEAD" -gt 0 ] || [ "$BEHIND" -gt 0 ]; then
+      STATUS+=" | 🔄 ahead $AHEAD / behind $BEHIND vs main"
     else
-      echo "   ⚠️ $remote/$branch does not exist yet"
+      STATUS+=" | ✅ in sync with main"
     fi
-  done
+  fi
 
-  # Push to both remotes
-  for remote in "${REMOTES[@]}"; do
-    echo "   📤 Pushing to $remote/$branch"
-    git push "$remote" "$branch" || true
-  done
+  echo "$branch -> $STATUS"
+  echo "----------------------------------------"
 
-  # Compare with both remotes
-  STATUS="✅ $branch is up to date"
-  for remote in "${REMOTES[@]}"; do
-    if git ls-remote --exit-code "$remote" "$branch" &>/dev/null; then
-      LOCAL=$(git rev-parse "$branch")
-      REMOTE=$(git rev-parse "$remote/$branch")
-      if [ "$LOCAL" != "$REMOTE" ]; then
-        STATUS="⚠️ $branch differs from $remote"
+  # Ask for fixing if differences found
+  if [[ "$STATUS" == *"⚠️"* || "$STATUS" == *"ahead"* || "$STATUS" == *"behind"* ]]; then
+    read -p "⚡ Do you want to sync $branch now? (y/n): " answer
+    if [[ "$answer" == "y" ]]; then
+      echo "➡️ Syncing $branch..."
+      git checkout $branch
+
+      # Rebase on latest main if not main
+      if [ "$branch" != "main" ]; then
+        git rebase main || {
+          echo "❌ Rebase failed. Resolve conflicts manually."
+          exit 1
+        }
       fi
-    else
-      STATUS="⚠️ $branch missing on $remote"
-    fi
-  done
 
-  REPORT="$REPORT\n$STATUS"
+      # Push updates to both remotes
+      git push origin $branch
+      git push bitbucket $branch
+
+      echo "✅ $branch synced successfully!"
+      echo "----------------------------------------"
+    fi
+  fi
 done
 
-echo -e "\n📊 Final Sync Report:"
-echo -e "$REPORT"
-
-# Switch back to develop (or main)
-git checkout develop || git checkout main
+# Return to original branch
+git checkout -
