@@ -1,73 +1,62 @@
 #!/bin/bash
-set -e  # Exit if any command fails
-
-# Define remotes
+set -e
 GITHUB="origin"
 BITBUCKET="bitbucket"
+FEATURE_BRANCH="feature/ollama-langchain-lab"
+DEVELOP_BRANCH="develop"
+MAIN_BRANCH="main"
 
-# Branches to sync
-BRANCHES=("main" "develop" "feature/ollama-langchain-lab")
-
-echo "🔄 Fetching latest changes from both remotes..."
+echo "🔄 Fetching all remotes..."
 git fetch $GITHUB
 git fetch $BITBUCKET
 
+# -----------------------------------------------------------------------------
+# Step 1: Ensure feature branch is updated
+# -----------------------------------------------------------------------------
+echo "🌿 Checking out $FEATURE_BRANCH..."
+git checkout $FEATURE_BRANCH
+git pull --rebase $GITHUB $FEATURE_BRANCH || true
+git pull --rebase $BITBUCKET $FEATURE_BRANCH || true
+
+# -----------------------------------------------------------------------------
+# Step 2: Merge feature → main
+# -----------------------------------------------------------------------------
+echo "📦 Updating $MAIN_BRANCH with $FEATURE_BRANCH..."
+git checkout $MAIN_BRANCH
+git pull --rebase $GITHUB $MAIN_BRANCH || true
+git pull --rebase $BITBUCKET $MAIN_BRANCH || true
+git merge --no-ff $FEATURE_BRANCH -m "Merge $FEATURE_BRANCH into $MAIN_BRANCH"
+
+git push $GITHUB $MAIN_BRANCH
+git push $BITBUCKET $MAIN_BRANCH
+
+# -----------------------------------------------------------------------------
+# Step 3: Rebase develop → main
+# -----------------------------------------------------------------------------
+echo "🔧 Rebasing $DEVELOP_BRANCH onto $MAIN_BRANCH..."
+git checkout $DEVELOP_BRANCH
+git pull --rebase $GITHUB $DEVELOP_BRANCH || true
+git pull --rebase $BITBUCKET $DEVELOP_BRANCH || true
+git rebase $MAIN_BRANCH
+
+git push $GITHUB $DEVELOP_BRANCH --force
+git push $BITBUCKET $DEVELOP_BRANCH --force
+
+# -----------------------------------------------------------------------------
+# Step 4: Rebase feature → main
+# -----------------------------------------------------------------------------
+echo "🌟 Rebasing $FEATURE_BRANCH onto $MAIN_BRANCH..."
+git checkout $FEATURE_BRANCH
+git rebase $MAIN_BRANCH
+
+git push $GITHUB $FEATURE_BRANCH --force
+git push $BITBUCKET $FEATURE_BRANCH --force
+
+# -----------------------------------------------------------------------------
+# Step 5: Report status
+# -----------------------------------------------------------------------------
 echo ""
-echo "=================================="
-echo "📊 Branch Sync Status Report"
-echo "=================================="
-
-# Report current branch sync status
-for branch in "${BRANCHES[@]}"; do
-  echo "➡️  $branch:"
-  git rev-list --left-right --count $GITHUB/$branch...$BITBUCKET/$branch || echo "   ⚠️  Branch missing in one of the remotes"
-done
-
-echo ""
-echo "=================================="
-echo "🚀 Starting Sync Process"
-echo "=================================="
-
-for branch in "${BRANCHES[@]}"; do
-  echo ""
-  echo "=============================="
-  echo "📌 Syncing branch: $branch"
-  echo "=============================="
-
-  # Checkout branch
-  git checkout $branch
-
-  # Step 1: Rebase with GitHub remote branch
-  echo "⬆️ Rebasing with $GITHUB/$branch..."
-  git pull --rebase $GITHUB $branch || {
-    echo "❌ Rebase failed with $GITHUB/$branch. Resolve conflicts manually."
-    exit 1
-  }
-
-  # Step 2: Rebase on top of latest main (skip if branch is main)
-  if [ "$branch" != "main" ]; then
-    echo "⬆️ Rebasing $branch on top of $GITHUB/main..."
-    git rebase $GITHUB/main || {
-      echo "❌ Rebase on main failed. Resolve conflicts manually."
-      exit 1
-    }
-  fi
-
-  # Step 3: Push updated branch to both remotes
-  echo "🚀 Pushing $branch to GitHub and Bitbucket..."
-  git push $GITHUB $branch
-  git push $BITBUCKET $branch
-done
-
-echo ""
-echo "=================================="
-echo "✅ Final Branch Status Report"
-echo "=================================="
-
-for branch in "${BRANCHES[@]}"; do
-  echo "➡️  $branch:"
-  git rev-list --left-right --count $GITHUB/$branch...$BITBUCKET/$branch || echo "   ⚠️  Branch missing in one of the remotes"
-done
-
-echo ""
-echo "✅ All branches synced successfully!"
+echo "✅ Sync complete! Branch status:"
+git fetch --all --quiet
+git branch -vv
+git log --oneline --graph --decorate --all --max-count=15
