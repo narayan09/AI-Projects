@@ -1,57 +1,73 @@
 #!/bin/bash
-set -e
+set -e  # Exit if any command fails
 
-# Remotes
-REMOTES=("origin" "bitbucket")
+# Define remotes
+GITHUB="origin"
+BITBUCKET="bitbucket"
+
+# Branches to sync
+BRANCHES=("main" "develop" "feature/ollama-langchain-lab")
 
 echo "🔄 Fetching latest changes from both remotes..."
-for remote in "${REMOTES[@]}"; do
-  git fetch "$remote"
+git fetch $GITHUB
+git fetch $BITBUCKET
+
+echo ""
+echo "=================================="
+echo "📊 Branch Sync Status Report"
+echo "=================================="
+
+# Report current branch sync status
+for branch in "${BRANCHES[@]}"; do
+  echo "➡️  $branch:"
+  git rev-list --left-right --count $GITHUB/$branch...$BITBUCKET/$branch || echo "   ⚠️  Branch missing in one of the remotes"
 done
 
-# Track sync status
-REPORT=""
+echo ""
+echo "=================================="
+echo "🚀 Starting Sync Process"
+echo "=================================="
 
-# Loop through all local branches
-for branch in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
-  echo -e "\n➡️ Syncing branch: $branch"
-  git checkout "$branch"
+for branch in "${BRANCHES[@]}"; do
+  echo ""
+  echo "=============================="
+  echo "📌 Syncing branch: $branch"
+  echo "=============================="
 
-  # Pull from both remotes
-  for remote in "${REMOTES[@]}"; do
-    if git ls-remote --exit-code "$remote" "$branch" &>/dev/null; then
-      echo "   📥 Pulling from $remote/$branch"
-      git pull "$remote" "$branch" || true
-    else
-      echo "   ⚠️ $remote/$branch does not exist yet"
-    fi
-  done
+  # Checkout branch
+  git checkout $branch
 
-  # Push to both remotes
-  for remote in "${REMOTES[@]}"; do
-    echo "   📤 Pushing to $remote/$branch"
-    git push "$remote" "$branch" || true
-  done
+  # Step 1: Rebase with GitHub remote branch
+  echo "⬆️ Rebasing with $GITHUB/$branch..."
+  git pull --rebase $GITHUB $branch || {
+    echo "❌ Rebase failed with $GITHUB/$branch. Resolve conflicts manually."
+    exit 1
+  }
 
-  # Compare with both remotes
-  STATUS="✅ $branch is up to date"
-  for remote in "${REMOTES[@]}"; do
-    if git ls-remote --exit-code "$remote" "$branch" &>/dev/null; then
-      LOCAL=$(git rev-parse "$branch")
-      REMOTE=$(git rev-parse "$remote/$branch")
-      if [ "$LOCAL" != "$REMOTE" ]; then
-        STATUS="⚠️ $branch differs from $remote"
-      fi
-    else
-      STATUS="⚠️ $branch missing on $remote"
-    fi
-  done
+  # Step 2: Rebase on top of latest main (skip if branch is main)
+  if [ "$branch" != "main" ]; then
+    echo "⬆️ Rebasing $branch on top of $GITHUB/main..."
+    git rebase $GITHUB/main || {
+      echo "❌ Rebase on main failed. Resolve conflicts manually."
+      exit 1
+    }
+  fi
 
-  REPORT="$REPORT\n$STATUS"
+  # Step 3: Push updated branch to both remotes
+  echo "🚀 Pushing $branch to GitHub and Bitbucket..."
+  git push $GITHUB $branch
+  git push $BITBUCKET $branch
 done
 
-echo -e "\n📊 Final Sync Report:"
-echo -e "$REPORT"
+echo ""
+echo "=================================="
+echo "✅ Final Branch Status Report"
+echo "=================================="
 
-# Switch back to develop (or main)
-git checkout develop || git checkout main
+for branch in "${BRANCHES[@]}"; do
+  echo "➡️  $branch:"
+  git rev-list --left-right --count $GITHUB/$branch...$BITBUCKET/$branch || echo "   ⚠️  Branch missing in one of the remotes"
+done
+
+echo ""
+echo "✅ All branches synced successfully!"
