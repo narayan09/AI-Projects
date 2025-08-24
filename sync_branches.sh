@@ -6,7 +6,7 @@ REMOTES=("origin" "bitbucket")
 
 echo "🔄 Fetching latest changes from both remotes..."
 for remote in "${REMOTES[@]}"; do
-  git fetch "$remote" --all
+  git fetch "$remote"
 done
 
 # Track sync status
