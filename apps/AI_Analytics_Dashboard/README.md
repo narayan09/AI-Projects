@@ -1,7 +1,7 @@
 # 🎯 Jira Ticket Analytics Dashboard
 
 A comprehensive Streamlit-based AI-powered dashboard for analyzing Jira ticket data with trend analysis, topic modeling, sentiment analysis, and predictive insights.
-
+![Chat Interface](Images/demo.JPG)
 ## 🚀 Features
 
 ### Core Analytics
