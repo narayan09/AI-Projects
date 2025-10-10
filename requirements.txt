@@ -7,3 +7,30 @@ pypdf
 python-dotenv
 faiss-cpu
 sentence-transformers
+# Agentic AI Multi-Agent System Requirements
+
+# Core AI Framework
+crewai>=0.70.0
+langchain-openai>=0.0.5
+
+# Web Interface
+streamlit-option-menu>=0.3.6
+
+# AI Models Integration  
+openai>=1.0.0
+
+# Web Scraping & Tools
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+duckduckgo-search>=4.1.1
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+pydantic>=2.0.0
+
+# File Handling
+python-dotenv>=1.0.0
+markdown>=3.5.0
+PyPDF2>=3.0.0
+python-dotenv
